@@ -1,79 +1,169 @@
-# Cricket Prediction Market
+# Duel Duck Prediction Market 🏏
 
-The contract allows users to participate in a decentralized prediction market by placing bets on the outcomes of cricket matches.
+Duel Duck is a **prediction market protocol on Solana**, built with **Rust** and **Anchor**. Users can create and participate in simple **yes/no duels** (predictions) on real-world events — with a strong focus on crypto, sports, esports, and gaming.
 
-## Market Mechanism (LMSR)
+Duel Duck aggregates collective belief into real-time probabilities using an on-chain automated market maker.
 
-This prediction market uses the **Logarithmic Market Scoring Rule (LMSR)**, a mathematical formula designed specifically for prediction markets. Here's how it works:
+---
 
-### Core Formula
-The market uses LMSR to determine prices and costs:
+## ✨ Key Features
 
-1. **Cost Function**:  
-   C = b · ln(e^(q_yes/b) + e^(q_no/b))
-   
-2. **YES Share Price**:  
-   P_yes = e^(q_yes/b) / (e^(q_yes/b) + e^(q_no/b))
+* Fully on-chain transparency
+* Automatic smart contract payouts
+* Creator commissions
+* No hidden fees
+* Fast & low-cost execution on Solana
 
-3. **NO Share Price**:  
-   P_no = 1 - P_yes
+---
 
-Where:
-- b = Liquidity parameter (controls price sensitivity)
-- q_yes = Number of YES shares
-- q_no = Number of NO shares
+## 🧠 Market Mechanism: LMSR
 
-### Example: "Will India win the 2025 Champions Trophy?"
+Duel Duck uses the **Logarithmic Market Scoring Rule (LMSR)** to provide:
 
-Let's walk through a trading scenario:
+* Continuous liquidity
+* Dynamic pricing
+* No need for order books or counterparties
 
-**Initial Market State:**
-```bash
-b = 1000                # Liquidity parameter
-q_yes = 100_000        # Initial YES shares
-q_no = 100_000         # Initial NO shares
+---
+
+## 📐 Core Formulas
+
+### 1️⃣ Cost Function
+
+```
+C = b * ln(e^(q_yes / b) + e^(q_no / b))
 ```
 
-1. **Initial Prices:**
-   P_yes = e^(100,000/1000) / (e^(100,000/1000) + e^(100,000/1000))
-   = e^100 / (e^100 + e^100)
-   = 0.5 (50%)
+### 2️⃣ YES Share Price
 
-   Both outcomes start at equal probability
+```
+P_yes = e^(q_yes / b) / (e^(q_yes / b) + e^(q_no / b))
+```
 
-2. **Someone buys 50,000 YES shares:**
-   ```bash
-   New q_yes = 150,000
-   ```
-   P_yes = e^(150,000/1000) / (e^(150,000/1000) + e^(100,000/1000))
-   = e^150 / (e^150 + e^100)
-   ≈ 0.73 (73%)
+### 3️⃣ NO Share Price
 
-   Market now shows 73% chance of India winning
+```
+P_no = 1 - P_yes
+```
 
-3. **Another trader buys 75,000 NO shares:**
-   ```bash
-   New q_no = 175,000
-   ```
-   P_yes = e^150 / (e^150 + e^175)
-   ≈ 0.31 (31%)
+### Parameters
 
-   Market now shows 31% chance of India winning
+* `b` — Liquidity parameter (higher = lower price sensitivity)
+* `q_yes` — Outstanding YES shares
+* `q_no` — Outstanding NO shares
 
-### How It Works in Practice
+---
 
-1. **Trading**:
-   - Buy YES tokens if you think India will win
-   - Buy NO tokens if you think India won't win
-   - Price automatically adjusts with each trade
+## 🏏 Trading Example
 
-2. **Settlement**:
-   - When the event concludes, winning tokens are worth 1 USDC
-   - Losing tokens are worth 0 USDC
+### *Will Real Madrid win in UEFA-2025?*
 
-3. **Example Trade**:
-   - Current YES price: 0.5 USDC
-   - Buy 1000 YES tokens
-   - Cost = ~500 USDC (plus price impact)
-   - If India wins: Receive 1000 USDC
-   - If India loses: Receive 0 USDC
+This example shows how probabilities change as users trade.
+
+---
+
+### Initial Market State (Rust)
+
+```rust
+let b: u64 = 1_000;            // Liquidity parameter
+let mut q_yes: u128 = 100_000; // Outstanding YES shares
+let mut q_no: u128 = 100_000;  // Outstanding NO shares
+```
+
+* Initial Probability: **P_yes = 0.5 (50%)**
+* Market starts neutral because `q_yes == q_no`
+
+---
+
+### User 1 Buys YES
+
+```rust
+q_yes += 50_000; // New q_yes = 150_000
+```
+
+* New Probability: **P_yes ≈ 0.73 (73%)**
+* Cost is calculated as the **difference in the LMSR cost function** before and after the trade.
+
+---
+
+### User 2 Buys NO
+
+```rust
+q_no += 75_000; // New q_no = 175_000
+```
+
+* New Probability: **P_yes ≈ 0.31 (31%)**
+
+📌 **Insight**: The more shares bought in one direction, the higher the implied probability and the higher the marginal cost for additional shares.
+
+---
+
+## ⚔️ How Duel Duck Works (Solana Program)
+
+### 1️⃣ Creating a Duel
+
+Any user can create a new **yes/no prediction market** by submitting a Solana instruction with:
+
+* Title & description
+* Resolution timestamp
+* Liquidity parameter `b`
+* Optional tags (cricket, crypto, esports, etc.)
+
+Markets are initialized with:
+
+```rust
+q_yes = q_no
+```
+
+This ensures **50/50 starting odds**.
+
+---
+
+### 2️⃣ Trading (Buy / Sell Shares)
+
+* **Buy YES** → Increases `q_yes`
+* **Buy NO** → Increases `q_no`
+* **Sell** → Decreases user-held shares and refunds based on current LMSR pricing
+
+All trades are:
+
+* Atomic
+* Fully on-chain
+* Instantly reflected in prices
+
+Users receive **fungible YES/NO SPL tokens**, unique to each duel.
+
+---
+
+### 3️⃣ Settlement
+
+After the resolution time passes, the duel creator or an integrated oracle resolves the market:
+
+```rust
+resolve_duel(outcome: Yes | No)
+```
+
+* Winning shares redeem for **1 USDC (or configured SPL token)** each
+* Losing shares are worth **0**
+
+Users claim rewards via:
+
+```rust
+redeem()
+```
+
+Payouts are executed automatically by the Solana program using CPI transfers.
+
+---
+
+### 4️⃣ Creator Commissions
+
+* Each duel defines a configurable commission rate
+* A percentage of trading volume accrues to the creator
+* Incentivizes high-quality, popular markets
+
+---
+
+## 📜 License
+
+MIT License
